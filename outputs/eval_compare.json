@@ -1,0 +1,85 @@
+{
+  "summary": {
+    "avg_parallel_s": 27.22,
+    "avg_serial_s": 72.73,
+    "avg_speedup": 3.18
+  },
+  "details": [
+    {
+      "question": "DeepSeek、Claude Code、Cursor 竞品分析：产品功能、技术能力、目标用户",
+      "parallel": {
+        "wall": 25.61,
+        "n_subagents": 3,
+        "dispatch_wall": 19.76,
+        "serial_sum": 41.7,
+        "speedup": 2.11,
+        "dispatched": true
+      },
+      "serial": {
+        "wall": 59.71,
+        "n_subagents": 3,
+        "dispatch_wall": 55.1,
+        "serial_sum": 55.09,
+        "speedup": 1.0,
+        "dispatched": true
+      }
+    },
+    {
+      "question": "国产大模型 API 竞品分析：调用价格、上下文长度、推理能力",
+      "parallel": {
+        "wall": 28.12,
+        "n_subagents": 3,
+        "dispatch_wall": 23.06,
+        "serial_sum": 67.08,
+        "speedup": 2.91,
+        "dispatched": true
+      },
+      "serial": {
+        "wall": 56.39,
+        "n_subagents": 3,
+        "dispatch_wall": 52.02,
+        "serial_sum": 52.02,
+        "speedup": 1.0,
+        "dispatched": true
+      }
+    },
+    {
+      "question": "AI Agent 框架竞品分析：LangGraph、AutoGen、CrewAI 的能力边界与适用场景",
+      "parallel": {
+        "wall": 26.6,
+        "n_subagents": 6,
+        "dispatch_wall": 21.61,
+        "serial_sum": 104.14,
+        "speedup": 4.82,
+        "dispatched": true
+      },
+      "serial": {
+        "wall": 104.44,
+        "n_subagents": 6,
+        "dispatch_wall": 99.19,
+        "serial_sum": 99.19,
+        "speedup": 1.0,
+        "dispatched": true
+      }
+    },
+    {
+      "question": "开源大模型竞品分析：技术路线、生态、商用许可",
+      "parallel": {
+        "wall": 28.56,
+        "n_subagents": 3,
+        "dispatch_wall": 23.96,
+        "serial_sum": 68.72,
+        "speedup": 2.87,
+        "dispatched": true
+      },
+      "serial": {
+        "wall": 70.38,
+        "n_subagents": 3,
+        "dispatch_wall": 64.88,
+        "serial_sum": 64.88,
+        "speedup": 1.0,
+        "dispatched": true
+      }
+    }
+  ]
+}

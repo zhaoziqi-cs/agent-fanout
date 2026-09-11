@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>并行市场调研控制台 · Multi-Agent</title>
+<style>
+  :root{
+    /* 底色：石墨灰，不带渐变与发光 */
+    --ink-0:#0E1113; --ink-1:#14181B; --ink-2:#0A0C0E;
+    --rule:#262D33; --rule-2:#1C2227;
+    --fg:#DCE2E6; --fg-2:#8E9AA2; --fg-3:#7C8891;
+    /* 信号色只表达状态，不表达角色 */
+    --live:#E3A33C; --sub:#6E8CA6; --done:#5FA98A; --alert:#D4596A;
+    --mono:"Cascadia Mono",Consolas,"SF Mono",ui-monospace,monospace;
+    --sans:"Segoe UI","PingFang SC","HarmonyOS Sans SC","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink-0);color:var(--fg);
+       font:400 13px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1360px;margin:0 auto;padding:24px 20px 48px}
+
+  /* ── 页头 ───────────────────────────────────────────── */
+  .masthead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+            flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--rule);margin-bottom:20px}
+  h1{margin:0;font-size:19px;font-weight:600;letter-spacing:.01em}
+  .tagline{margin:5px 0 0;font-size:12px;color:var(--fg-3)}
+  .claim{margin:0;font-size:11.5px;color:var(--fg-3)}
+  .claim b{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--done)}
+
+  /* ── 面板 ───────────────────────────────────────────── */
+  .panel{background:var(--ink-1);border:1px solid var(--rule);border-radius:8px;padding:16px;margin-bottom:16px}
+  .ptitle{margin:0 0 12px;font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--fg-2)}
+
+  /* ── 提问区 ─────────────────────────────────────────── */
+  textarea{width:100%;border:1px solid var(--rule);border-radius:5px;padding:10px 12px;
+           font:400 13.5px/1.6 var(--sans);background:var(--ink-2);color:var(--fg);resize:vertical}
+  textarea::placeholder{color:var(--fg-3)}
+  textarea:focus{outline:none;border-color:var(--live)}
+  .ctrl{display:flex;align-items:center;gap:10px;margin-top:11px;flex-wrap:wrap}
+  button{font:500 12.5px var(--sans);border-radius:5px;padding:8px 16px;cursor:pointer;
+         border:1px solid transparent;background:transparent;color:var(--fg);
+         transition:background .15s,border-color .15s,color .15s}
+  .btn-run{background:var(--live);border-color:var(--live);color:#1A1206;font-weight:600}
+  .btn-run:hover{background:#F0B255;border-color:#F0B255}
+  .btn-run:disabled{background:#332E23;border-color:#332E23;color:#7A6F5A;cursor:default}
+  .ex{border-color:var(--rule);color:var(--fg-2);font-size:12px;padding:6px 12px}
+  .ex:hover{border-color:var(--sub);color:var(--fg)}
+  .hint{font-size:12px;color:var(--fg-3);margin-right:-4px}
+  .spinner{width:13px;height:13px;border:2px solid rgba(227,163,60,.25);
+           border-top-color:var(--live);border-radius:50%;animation:spin .7s linear infinite;
+           display:none;flex:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── 双栏：左拓扑 / 右过程流 ─────────────────────────── */
+  .grid{display:grid;grid-template-columns:minmax(320px,360px) 1fr;gap:16px;align-items:start}
+  .side{position:sticky;top:20px;margin-bottom:0}
+  #topo{line-height:0}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;
+          font-size:11px;color:var(--fg-3)}
+  .legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .l-live{background:var(--live)} .l-done{background:var(--done)} .l-idle{background:#454F57}
+
+  /* ── 并行加速读数 ───────────────────────────────────── */
+  .stats{display:none;grid-template-columns:1fr 1fr;gap:1px;margin-top:14px;
+         background:var(--rule);border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+  .stat{background:var(--ink-2);padding:10px 12px}
+  .stat .k{display:block;font-size:10.5px;color:var(--fg-3)}
+  .stat .v{display:block;margin-top:3px;font:600 15px var(--mono);color:var(--fg)}
+  .stat.hi .v{color:var(--done)}
+
+  /* ── 视图选择 ───────────────────────────────────────── */
+  .nodesel{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:14px;
+           padding-bottom:14px;border-bottom:1px solid var(--rule-2)}
+  .sel-label{font-size:11.5px;color:var(--fg-3);margin-right:2px}
+  .nodebtn{font:400 11.5px var(--sans);padding:4px 11px;border-radius:999px;
+           border:1px solid var(--rule);color:var(--fg-2)}
+  .nodebtn:hover{border-color:var(--sub);color:var(--fg)}
+  .nodebtn.on{background:var(--live);border-color:var(--live);color:#1A1206;font-weight:600}
+  .status-tag{font:400 10px var(--mono);margin-left:6px;padding:1px 5px;border-radius:3px}
+  .status-running{background:rgba(227,163,60,.16);color:var(--live)}
+  .status-done{background:rgba(95,169,138,.16);color:var(--done)}
+
+  /* ── 步骤流：一条连续时间轨 ─────────────────────────── */
+  .feed{max-height:620px;overflow-y:auto}
+  .step{display:grid;grid-template-columns:30px 1fr;column-gap:12px}
+  .step .rail{position:relative}
+  .step .rail::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;
+                      background:var(--rule);transform:translateX(-50%)}
+  .step:first-child .rail::before{top:11px}
+  .step:last-child .rail::before{height:11px;bottom:auto}
+  .step .dot{position:absolute;left:50%;top:7px;width:9px;height:9px;border-radius:50%;
+             transform:translateX(-50%);background:var(--ink-1);
+             border:2px solid var(--sub);z-index:1}
+  .step.main .dot{border-color:var(--live)}
+  .step .body{padding:3px 0 16px;min-width:0}
+  .step .hd{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .nbadge{font-size:11.5px;font-weight:600;color:var(--sub)}
+  .step.main .nbadge{color:var(--live)}
+  .stp{font:400 10.5px var(--mono);color:var(--fg-3)}
+
+  .ln{display:grid;grid-template-columns:32px 1fr;column-gap:9px;margin-top:5px;
+      align-items:baseline}
+  .lb{font-size:10.5px;color:var(--fg-3);text-align:right}
+  .tx{font-size:12.5px;line-height:1.7;min-width:0;word-break:break-word}
+  .tx.thought{color:var(--fg-2)}
+  .tx.act{font:400 11.5px/1.7 var(--mono);color:var(--fg)}
+  .tx.act em{font-style:normal;color:var(--fg-3)}
+  .tx.wait{color:var(--live);font-size:12px}
+  .tx.obs{font:400 11px/1.65 var(--mono);color:var(--fg-2);white-space:pre-wrap;
+          background:var(--ink-2);border:1px solid var(--rule-2);border-radius:4px;
+          padding:7px 9px;max-height:130px;overflow-y:auto}
+  .tx.fa{color:var(--done);font-weight:600}
+  .empty{margin:0;padding:20px 2px;font-size:12.5px;color:var(--fg-3)}
+
+  /* ── 报告 ───────────────────────────────────────────── */
+  .ans{font-size:13.5px;line-height:1.85;white-space:pre-wrap;max-width:84ch}
+  .ans.err{color:var(--alert)}
+
+  /* ── 滚动条 / 焦点 / 无障碍 ─────────────────────────── */
+  *::-webkit-scrollbar{width:8px;height:8px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:#2C343A;border-radius:4px}
+  *::-webkit-scrollbar-thumb:hover{background:#3A444B}
+  :focus-visible{outline:2px solid var(--live);outline-offset:2px}
+
+  @media (max-width:960px){
+    .grid{grid-template-columns:1fr}
+    .side{position:static}
+    .wrap{padding:20px 16px 40px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;
+                         animation-iteration-count:1!important;
+                         transition-duration:.001ms!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <h1>并行市场调研控制台</h1>
+      <p class="tagline">主 Agent 自主路由 · Subagent 并行执行 · ReAct 过程实时可见</p>
+    </div>
+    <p class="claim">4 题实测 · 批次平均加速 <b>3.18×</b></p>
+  </header>
+
+  <div class="panel">
+    <textarea id="q" rows="2" aria-label="调研问题">DeepSeek、Claude Code、Cursor 竞品分析：产品功能、技术能力、目标用户</textarea>
+    <div class="ctrl">
+      <button id="ask" class="btn-run" onclick="ask()">开始调研</button>
+      <div id="spin" class="spinner"></div>
+      <span class="hint">示例</span>
+      <button class="ex" onclick="fill('DeepSeek、Claude Code、Cursor 竞品分析：产品功能、技术能力、目标用户')">AI 编程助手竞品</button>
+      <button class="ex" onclick="fill('AI Agent 框架竞品分析：LangGraph、AutoGen、CrewAI 的能力边界与适用场景')">Agent 框架竞品</button>
+      <button class="ex" onclick="fill('DeepSeek V3 的参数量是多少')">单事实查询</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel side">
+      <h2 class="ptitle">调研拓扑</h2>
+      <div id="topo"></div>
+      <div class="legend">
+        <span><i class="l-live"></i>运行中</span>
+        <span><i class="l-done"></i>已完成</span>
+        <span><i class="l-idle"></i>等待派发</span>
+      </div>
+      <div class="stats" id="stats" style="display:none"></div>
+    </div>
+    <div class="panel">
+      <div class="nodesel" id="nodesel"></div>
+      <div class="feed" id="feed"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px">
+    <h2 class="ptitle">最终调研报告</h2>
+    <div id="ans" class="ans">调研完成后在此生成报告。</div>
+  </div>
+</div>
+
+<script src="/static/viz/topology.js"></script>
+<script>
+let topo = null;
+let allSteps = [];          // 全局有序步骤流：[{node, nodeType, step}]
+let traces = {};            // {nodeId: [step]}
+let nodeMeta = {};          // {id: {topic, status}}
+let currentNode = 'all';    // 'all' 或某 node id
+let autoFollow = true;      // 是否自动滚动到底
+let subTopics = {};
+
+function fill(q) { document.getElementById('q').value = q; }
+
+/* 重置视图：整体换图 + 清空流。首屏与每次提问前都调用。
+   注意 TopoViz 的构造会清空宿主容器，所以这里是重建而非复用。 */
+function initView() {
+  allSteps = []; traces = {}; nodeMeta = {}; subTopics = {};
+  currentNode = 'all'; autoFollow = true;
+  topo = new TopoViz(document.getElementById('topo'));
+  topo.setMain();
+  topo.onClick(id => selectNode(id));
+  nodeMeta['main'] = { topic:'主 agent', status:'idle' };
+  traces['main'] = [];
+  refreshNodeSel();
+  renderFeed();
+}
+
+async function ask() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('ask'), spin = document.getElementById('spin');
+  const ans = document.getElementById('ans');
+  btn.disabled = true; spin.style.display = 'inline-block';
+  ans.classList.remove('err');
+  ans.textContent = '调研进行中，完成后在此生成报告。';
+  document.getElementById('stats').style.display = 'none';
+  initView();
+
+  try {
+    const resp = await fetch('/query', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({question: q}) });
+    const reader = resp.body.getReader(); const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream:true});
+      const lines = buf.split('\n\n'); buf = lines.pop();
+      for (const ln of lines) {
+        if (!ln.startsWith('data:')) continue;
+        const ev = JSON.parse(ln.slice(5).trim());
+        handleEvent(ev);
+      }
+    }
+  } catch (e) {
+    ans.classList.add('err');
+    ans.textContent = '请求失败：' + e;
+  } finally {
+    btn.disabled = false; spin.style.display = 'none';
+  }
+}
+
+function handleEvent(ev) {
+  if (ev.type === 'main_step') {
+    pushStep('main', 'main', ev);
+    topo.markRunning('main');
+    nodeMeta['main'].status = ev.final ? 'done' : 'running';
+  } else if (ev.type === 'dispatch') {
+    ev.subagent_ids.forEach((id, i) => {
+      subTopics[id] = ev.subtopics[i] || id;
+      traces[id] = []; nodeMeta[id] = { topic: subTopics[id], status:'running' };
+      topo.addSubagent(id, subTopics[id]);
+      topo.markRunning(id);
+    });
+    refreshNodeSel();
+  } else if (ev.type === 'subagent_step') {
+    pushStep(ev.subagent_id, 'sub', ev);
+    topo.markRunning(ev.subagent_id);
+  } else if (ev.type === 'subagent_done') {
+    topo.markDone(ev.subagent_id);
+    if (nodeMeta[ev.subagent_id]) nodeMeta[ev.subagent_id].status = 'done';
+    refreshNodeSel();
+  } else if (ev.type === 'final') {
+    const ans = document.getElementById('ans');
+    ans.classList.remove('err');
+    ans.textContent = ev.answer || '（无）';
+    if (ev.parallel_stats && ev.parallel_stats.length) {
+      const s = ev.parallel_stats[ev.parallel_stats.length-1];
+      const el = document.getElementById('stats');
+      el.innerHTML =
+          `<div class="stat"><span class="k">子 Agent</span><span class="v">${s.n_subagents}</span></div>`
+        + `<div class="stat"><span class="k">并行批次耗时</span><span class="v">${s.wall_clock}s</span></div>`
+        + `<div class="stat"><span class="k">串行批次耗时</span><span class="v">${s.serial_sum}s</span></div>`
+        + `<div class="stat hi"><span class="k">批次加速</span><span class="v">${s.speedup}×</span></div>`;
+      el.style.display = 'grid';
+    }
+    topo.markDone('main');
+    if (nodeMeta['main']) nodeMeta['main'].status = 'done';
+    refreshNodeSel();
+  } else if (ev.type === 'error') {
+    const ans = document.getElementById('ans');
+    ans.classList.add('err');
+    ans.textContent = '调研失败：' + ev.message;
+  }
+}
+
+function pushStep(node, nodeType, step) {
+  if (!traces[node]) { traces[node] = []; nodeMeta[node] = {topic: subTopics[node]||node, status:'running'}; }
+  // ⚠️ 去重 by idx：pre-step(observation=null) 和 post-step(带 observation) 共享 idx，
+  //    post 到达时原地更新，不重复 append
+  const tIdx = traces[node].findIndex(s => s.idx === step.idx);
+  if (tIdx >= 0) traces[node][tIdx] = step; else traces[node].push(step);
+  const aIdx = allSteps.findIndex(s => s.node === node && s.step.idx === step.idx);
+  if (aIdx >= 0) allSteps[aIdx] = { node, nodeType, step };
+  else allSteps.push({ node, nodeType, step });
+  renderFeed();
+}
+
+function selectNode(id) {
+  currentNode = id; autoFollow = (id === 'all');
+  refreshNodeSel();
+  renderFeed();
+}
+
+function refreshNodeSel() {
+  const sel = document.getElementById('nodesel');
+  let html = '<span class="sel-label">视图</span>';
+  html += `<button class="nodebtn${currentNode==='all'?' on':''}" onclick="selectNode('all')">全部实时流</button>`;
+  const ids = ['main', ...Object.keys(subTopics)];
+  ids.forEach(id => {
+    const m = nodeMeta[id] || {};
+    const tag = m.status === 'done' ? '<span class="status-tag status-done">完成</span>'
+              : m.status === 'running' ? '<span class="status-tag status-running">运行</span>' : '';
+    const lbl = id === 'main' ? '主 Agent' : (m.topic||id).slice(0,10);
+    html += `<button class="nodebtn${currentNode===id?' on':''}" onclick="selectNode('${id}')">${lbl}${tag}</button>`;
+  });
+  sel.innerHTML = html;
+}
+
+function renderFeed() {
+  const box = document.getElementById('feed');
+  let steps;
+  if (currentNode === 'all') steps = allSteps;
+  else steps = (traces[currentNode]||[]).map(s => ({node:currentNode, nodeType: currentNode==='main'?'main':'sub', step:s}));
+  let html = '';
+  steps.forEach(({node, nodeType, step: s}) => {
+    const isMain = nodeType === 'main';
+    const lbl = isMain ? '主 Agent' : (nodeMeta[node]?.topic || node);
+    const t = s.thought ? `<div class="ln"><span class="lb">思考</span><span class="tx thought">${s.thought}</span></div>` : '';
+    const a = s.action ? `<div class="ln"><span class="lb">行动</span><span class="tx act">${s.action}`
+                       + `<em>(${s.action_input ? s.action_input.slice(0,55) : ''})</em></span></div>` : '';
+    const o = s.observation ? `<div class="ln"><span class="lb">观察</span><span class="tx obs">${s.observation}</span></div>`
+            : (!s.final ? `<div class="ln"><span class="lb">观察</span><span class="tx wait">等待工具返回…</span></div>` : '');
+    const fa = s.final ? `<div class="ln"><span class="lb">结论</span><span class="tx fa">已生成答案</span></div>` : '';
+    html += `<div class="step ${isMain ? 'main' : 'sub'}">`
+          +   `<div class="rail"><span class="dot"></span></div>`
+          +   `<div class="body">`
+          +     `<div class="hd"><span class="nbadge">${lbl}</span><span class="stp">步骤 ${s.idx + 1}</span></div>`
+          +     t + a + o + fa
+          +   `</div>`
+          + `</div>`;
+  });
+  if (!steps.length) html = '<p class="empty">还没有步骤。输入问题后，各 agent 的思考、工具调用与观察结果会实时出现在这里。</p>';
+  box.innerHTML = html;
+  if (autoFollow) box.scrollTop = box.scrollHeight;
+}
+
+initView();   // 首屏：画出主节点 + 空态引导，不留空白面板
+</script>
+</body>
+</html>
